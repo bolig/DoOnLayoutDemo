@@ -1,6 +1,7 @@
 package just.blue.kotlin.demo
 
 import android.os.Build
+import android.support.v4.view.ViewCompat
 import android.view.View
 import android.view.ViewTreeObserver
 
@@ -12,7 +13,15 @@ import android.view.ViewTreeObserver
  * @param runLayout run Layout
  * @param removePredicate return true, remove callback; Otherwise, no operation
  */
-inline fun View.doOnLayout(crossinline removePredicate: () -> Boolean = { false }, crossinline runLayout: () -> Unit) {
+inline fun View.doOnLayout(crossinline removePredicate: () -> Boolean = { true }, crossinline runLayout: () -> Unit) {
+    if (ViewCompat.isLaidOut(this) && !isLayoutRequested) {
+        kotlin.run(runLayout)
+
+        if (kotlin.run(removePredicate)) {
+            return
+        }
+    }
+
     this.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
         override fun onGlobalLayout() {
             kotlin.run(runLayout)
@@ -76,12 +85,16 @@ inline infix fun View.doOnLayoutWhen(crossinline runLayout: () -> RemoveAndValue
  * @see [removeAndReturn]
  */
 inline infix fun View.doOnPreDrawWhen(crossinline runPreDraw: () -> RemoveAndValue<Boolean>) {
-    this.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+    val vto = this.viewTreeObserver
+    vto.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
         override fun onPreDraw(): Boolean {
             val (removeCallback, actualValue) = runPreDraw()
 
             if (removeCallback) {
-                viewTreeObserver.removeOnPreDrawListener(this)
+                when {
+                    vto.isAlive -> vto.removeOnPreDrawListener(this)
+                    else -> vto.removeOnPreDrawListener(this)
+                }
             }
 
             return actualValue
