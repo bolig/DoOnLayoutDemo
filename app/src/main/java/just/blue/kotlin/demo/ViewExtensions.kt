@@ -22,19 +22,30 @@ inline fun View.doOnLayout(crossinline removePredicate: () -> Boolean = { true }
         }
     }
 
-    this.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+    val vto = viewTreeObserver
+    vto.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
         override fun onGlobalLayout() {
             kotlin.run(runLayout)
 
             if (kotlin.run(removePredicate)) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-                    viewTreeObserver.removeOnGlobalLayoutListener(this)
-                } else {
-                    viewTreeObserver.removeGlobalOnLayoutListener(this)
+                when {
+                    vto.isAlive -> removeOnGlobalLayoutListener(vto, this)
+                    else -> removeOnGlobalLayoutListener(viewTreeObserver, this)
                 }
             }
         }
     })
+}
+
+inline fun removeOnGlobalLayoutListener(
+        viewTreeObserver: ViewTreeObserver,
+        listener: ViewTreeObserver.OnGlobalLayoutListener) {
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+        viewTreeObserver.removeOnGlobalLayoutListener(listener)
+    } else {
+        viewTreeObserver.removeGlobalOnLayoutListener(listener)
+    }
 }
 
 /** Plan2 */
@@ -58,15 +69,15 @@ inline infix fun <T> Boolean.removeAndReturn(actualValue: T): RemoveAndValue<T> 
  * @see [removeAndUnit]
  */
 inline infix fun View.doOnLayoutWhen(crossinline runLayout: () -> RemoveAndValue<Unit>) {
-    this.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+    val vto = this.viewTreeObserver
+    vto.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
         override fun onGlobalLayout() {
             val (removeCallback, _) = runLayout()
 
             if (removeCallback) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-                    viewTreeObserver.removeOnGlobalLayoutListener(this)
-                } else {
-                    viewTreeObserver.removeGlobalOnLayoutListener(this)
+                when {
+                    vto.isAlive -> removeOnGlobalLayoutListener(vto, this)
+                    else -> removeOnGlobalLayoutListener(viewTreeObserver, this)
                 }
             }
         }
